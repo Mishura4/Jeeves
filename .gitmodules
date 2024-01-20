@@ -1,0 +1,9 @@
+[submodule "dep/DPP"]
+	path = dep/DPP
+	url = git@github.com:brainboxdotcc/DPP.git
+[submodule "dep/sol2"]
+	path = dep/sol2
+	url = git@github.com:ThePhD/sol2.git
+[submodule "dep/lua"]
+	path = dep/lua
+	url = git@github.com:lua/lua.git
