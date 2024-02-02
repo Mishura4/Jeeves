@@ -1,6 +1,7 @@
 [submodule "dep/DPP"]
 	path = dep/DPP
-	url = git@github.com:brainboxdotcc/DPP.git
+	url = git@github.com:Mishura4/DPP-PRs.git
+	branch = coro
 [submodule "dep/sol2"]
 	path = dep/sol2
 	url = git@github.com:ThePhD/sol2.git
