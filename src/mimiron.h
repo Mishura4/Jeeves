@@ -4,6 +4,8 @@
 
 #include <dpp/cluster.h>
 
+#include "database/database.h"
+
 #include "commands/command_handler.h"
 
 namespace mimiron {
@@ -19,6 +21,11 @@ public:
 private:
 	dpp::cluster cluster;
 	command_handler _command_handler{*this};
+	sql::mysql_database _database{{
+		.password = "root",
+		.database = "mimiron",
+		.port = 3307
+	}};
 };
 
 }

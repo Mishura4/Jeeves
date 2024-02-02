@@ -238,8 +238,8 @@ public:
 
 	dpp::task<> operator()(const dpp::slashcommand_t &event);
 
-	dpp::coroutine<std::expected<void, dpp::error_info>> fetch_commands(dpp::cluster &bot);
-	dpp::coroutine<std::expected<void, dpp::error_info>> register_commands(dpp::cluster &bot);
+	dpp::coroutine<std::expected<size_t, dpp::error_info>> fetch_commands(dpp::cluster &bot);
+	dpp::coroutine<std::expected<size_t, dpp::error_info>> register_commands(dpp::cluster &bot);
 
 	template <typename Callable>
 	command_handler& add_command(const dpp::slashcommand& cmd, Callable&& callable);

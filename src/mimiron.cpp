@@ -34,6 +34,11 @@ mimiron::mimiron(std::span<char *const> args) :
 	cluster.on_log(dpp::utility::cout_logger());
 }
 
+struct discord_guild_entry {
+	uint64_t snowflake;
+	std::string wow_guild_ids;
+};
+
 int mimiron::run() {
 	auto data = wow::guildbook_data::parse(dpp::utility::read_file("Guildbook_ClassicEra.lua"));
 
@@ -45,6 +50,19 @@ int mimiron::run() {
 						dpp::command_option{{}, "thing", "the thing"}
 					}
 				}
+			}
+		);
+		_command_handler.add_command(
+			dpp::slashcommand{"test", "test the thing", 0},
+			[me = this](const dpp::slashcommand_t &e) -> dpp::coroutine<> {
+				dpp::snowflake id = e.command.guild_id;
+				constexpr auto query = sql::select<discord_guild_entry>.from("discord_guild").where("snowflake = ?");
+
+				auto stmt = co_await me->_database.prepare(query);
+				stmt.bind(static_cast<uint64_t>(e.command.guild_id));
+				auto results = co_await me->_database.execute(stmt);
+				dpp::message m{"done"};
+				e.reply(m);
 			}
 		);
 		_command_handler.add_command(

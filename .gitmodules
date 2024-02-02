@@ -7,3 +7,6 @@
 [submodule "dep/lua"]
 	path = dep/lua
 	url = git@github.com:lua/lua.git
+[submodule "dep/pfr"]
+	path = dep/pfr
+	url = https://github.com/boostorg/pfr.git

@@ -1,6 +1,7 @@
 
 add_subdirectory(DPP)
 add_subdirectory(sol2)
+add_subdirectory(pfr)
 
 project(lua LANGUAGES C)
 

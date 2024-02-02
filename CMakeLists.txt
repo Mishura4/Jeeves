@@ -13,7 +13,9 @@ FILE(GLOB_RECURSE MIMIRON_SRC src/*.cpp src/*.h)
 
 add_executable(Mimiron ${MIMIRON_SRC})
 
-target_link_libraries(Mimiron PUBLIC dpp sol2::sol2 liblua mysql)
+target_link_libraries(Mimiron PUBLIC dpp sol2::sol2 liblua mysql Boost::pfr)
+
+target_compile_definitions(Mimiron PUBLIC "NOMINMAX")
 
 target_compile_options(Mimiron
 	PRIVATE

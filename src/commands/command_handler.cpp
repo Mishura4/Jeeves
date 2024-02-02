@@ -164,7 +164,7 @@ auto command_handler::operator()(const dpp::slashcommand_t &event) -> dpp::task<
 	co_return;*/
 }
 
-dpp::coroutine<std::expected<void, dpp::error_info>> command_handler::fetch_commands(
+dpp::coroutine<std::expected<size_t, dpp::error_info>> command_handler::fetch_commands(
 	dpp::cluster& bot
 ) {
 	auto result = co_await bot.co_global_commands_get();
@@ -181,10 +181,10 @@ dpp::coroutine<std::expected<void, dpp::error_info>> command_handler::fetch_comm
 		}
 		my_command->command = slashcommand;
 	}
-	co_return {};
+	co_return std::expected<size_t, dpp::error_info>{std::get<dpp::slashcommand_map>(result.value).size()};
 }
 
-dpp::coroutine<std::expected<void, dpp::error_info>> command_handler::register_commands(
+dpp::coroutine<std::expected<size_t, dpp::error_info>> command_handler::register_commands(
 	dpp::cluster& bot
 ) {
 	auto result = co_await bot.co_global_bulk_command_create(
@@ -205,7 +205,7 @@ dpp::coroutine<std::expected<void, dpp::error_info>> command_handler::register_c
 		}
 		my_command->command = slashcommand;
 	}
-	co_return {};
+	co_return std::expected<size_t, dpp::error_info>{std::get<dpp::slashcommand_map>(result.value).size()};
 }
 
 command_handler& command_handler::add_command(const dpp::slashcommand& command, std::vector<subcommand> subcommands) {
