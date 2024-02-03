@@ -3,6 +3,9 @@ add_subdirectory(DPP)
 add_subdirectory(sol2)
 add_subdirectory(pfr)
 
+set(OSMANIP_TESTS off)
+add_subdirectory(termcolor)
+
 project(lua LANGUAGES C)
 
 find_package(MySQL REQUIRED COMPONENTS lib)

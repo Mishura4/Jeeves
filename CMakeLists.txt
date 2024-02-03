@@ -11,9 +11,19 @@ add_subdirectory(dep)
 
 FILE(GLOB_RECURSE MIMIRON_SRC src/*.cpp src/*.h)
 
-add_executable(Mimiron ${MIMIRON_SRC})
+add_executable(Mimiron ${MIMIRON_SRC} "src/database/conditions.h")
 
-target_link_libraries(Mimiron PUBLIC dpp sol2::sol2 liblua mysql Boost::pfr)
+target_link_libraries(Mimiron PUBLIC dpp sol2::sol2 liblua mysql Boost::pfr termcolor)
+
+target_precompile_headers(Mimiron PRIVATE
+	"${CMAKE_CURRENT_LIST_DIR}/dep/DPP/include/dpp/coro/awaitable.h"
+	"${CMAKE_CURRENT_LIST_DIR}/dep/DPP/include/dpp/coro/coroutine.h"
+	"${CMAKE_CURRENT_LIST_DIR}/dep/DPP/include/dpp/coro/task.h"
+	"${CMAKE_CURRENT_LIST_DIR}/dep/DPP/include/dpp/coro/async.h"
+	"${CMAKE_CURRENT_LIST_DIR}/dep/DPP/include/dpp/cluster.h"
+	"${CMAKE_CURRENT_LIST_DIR}/src/database/query.h"
+	"${CMAKE_CURRENT_LIST_DIR}/src/tools/cache.h"
+)
 
 target_compile_definitions(Mimiron PUBLIC "NOMINMAX")
 

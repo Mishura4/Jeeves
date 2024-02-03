@@ -12,3 +12,12 @@
 [submodule "dep/pfr"]
 	path = dep/pfr
 	url = https://github.com/boostorg/pfr.git
+[submodule "dep/color-console"]
+	path = dep/color-console
+	url = https://github.com/aafulei/color-console.git
+[submodule "dep/osmanip"]
+	path = dep/osmanip
+	url = https://github.com/JustWhit3/osmanip.git
+[submodule "dep/termcolor"]
+	path = dep/termcolor
+	url = https://github.com/ikalnytskyi/termcolor.git

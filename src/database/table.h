@@ -36,13 +36,7 @@ template <basic_string_literal Name, typename T>
 class table {
 public:
 	template <basic_string_literal... Fields>
-	constexpr static auto select() noexcept {
-		return sql::select<std::tuple<field<boost::pfr::tuple_element_t<index_of_member<T, Fields>, T>, Fields>...>>.from(Name);
-	}
-
-	constexpr static auto select() noexcept {
-		return sql::select<T>.from(Name);
-	}
+	constexpr static inline auto select = sql::select<std::tuple<field<boost::pfr::tuple_element_t<index_of_member<T, Fields>, T>, Fields>...>>.from(Name);
 
 private:
 };
