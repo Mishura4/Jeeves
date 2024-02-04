@@ -17,23 +17,25 @@ namespace mimiron {
 
 namespace {
 
-std::string get_token(const std::filesystem::path &file_path) {
+nlohmann::json load_config(const std::filesystem::path &file_path) {
 	std::ifstream fs{file_path};
 
 	if (!fs.good()) {
 		throw dpp::invalid_token_exception{"could not read " + file_path.string()};
 	}
-	std::string token;
 
-	std::getline(fs, token);
-	return (token);
+	nlohmann::json j;
+
+	fs >> j;
+	return j;
 }
 
 }
 
 mimiron::mimiron(std::span<char *const> args) :
-	cluster{get_token(args.size() < 2 ? "token.txt" : args[1]), dpp::i_default_intents, 0, 0, 1, true, dpp::cache_policy::cpol_balanced} {
-	/* Output simple log messages to stdout */
+	config{load_config(args.size() < 2 ? "config.json" : args[1])},
+	cluster{config["discord_token"], dpp::i_default_intents, 0, 0, 1, true, dpp::cache_policy::cpol_balanced},
+	_wow_api{cluster, config["wow_api_id"], config["wow_api_key"]} {
 	log_min = 0;
 	cluster.on_log([this]( dpp::log_t const& log) { _log(log); });
 }
@@ -254,6 +256,16 @@ int mimiron::run() {
 		return -1;
 	}
 
+	try {
+		auto result = _wow_api.start().sync_wait_for(1min);
+		if (!result) {
+			throw exception{"WoW API timed out"};
+		}
+	} catch (const std::exception &e) {
+		cluster.log(dpp::ll_critical, std::format("fatal error while initializing WoW API communication, exiting", e.what()));
+		return -1;
+	}
+
 	/* Register slash command here in on_ready */
 	cluster.on_ready([this](const dpp::ready_t& event) {
 		/* Wrap command registration in run_once to make sure it doesnt run on every full reconnection */
@@ -268,7 +280,17 @@ int mimiron::run() {
 		}
 	});
 
-	/* Handle slash command with the most recent addition to D++ features, coroutines! */
+	cluster.on_button_click([this](const dpp::button_click_t &event) -> dpp::task<> {
+		try {
+			if (event.custom_id == "guild_add") {
+				co_await guild_command{*this}.add_guild(event);
+			}
+		} catch (const std::exception &e) {
+			log(dpp::ll_error, "exception in button handler: {}", e.what());
+		}
+		co_return;
+	});
+
 	cluster.on_slashcommand(_command_handler);
 
 	cluster.start(dpp::st_wait);

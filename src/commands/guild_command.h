@@ -19,6 +19,8 @@ public:
 
 	dpp::coroutine<void> operator()(const dpp::slashcommand_t &event);
 
+	dpp::coroutine<void> add_guild(const dpp::button_click_t &event);
+
 private:
 	dpp::coroutine<void> _show_empty_menu(const dpp::slashcommand_t &event);
 

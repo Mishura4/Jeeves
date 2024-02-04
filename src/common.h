@@ -20,6 +20,25 @@ inline void throw_if_error(dpp::confirmation_callback_t const& result) {
 
 using namespace std::chrono_literals;
 
+using std::chrono::system_clock;
+
+using discord_duration = std::chrono::duration<double>;
+using discord_timestamp = std::chrono::time_point<system_clock, discord_duration>;
+
+inline constexpr auto discord_epoch = std::chrono::time_point_cast<discord_duration>(std::chrono::sys_days{std::chrono::year{2015}/1/1});
+
+constexpr discord_timestamp discord_time(double time) {
+	return discord_timestamp{discord_duration{time}};
+}
+
+constexpr double discord_time(discord_timestamp const& time) {
+	return time.time_since_epoch().count();
+}
+
+constexpr discord_timestamp discord_time() {
+	return std::chrono::time_point_cast<discord_duration>(system_clock::now());
+}
+
 using std::chrono::nanoseconds;
 using std::chrono::milliseconds;
 using std::chrono::seconds;

@@ -14,6 +14,8 @@
 #include "wow/guild.h"
 #include "discord_guild.h"
 
+#include "wow/api/api_handler.h"
+
 namespace mimiron {
 
 class mimiron {
@@ -49,6 +51,10 @@ public:
 		return _discord_guild_cache;
 	}
 
+	auto& wow_api() noexcept {
+		return _wow_api;
+	}
+
 	dpp::coroutine<dpp::guild_member> get_bot_member(dpp::snowflake guild);
 
 	dpp::coroutine<dpp::embed> make_default_embed(dpp::snowflake guild_for = {}, dpp::user const* user_for = nullptr, dpp::guild_member const* member_for = nullptr);
@@ -61,8 +67,10 @@ private:
 	void _init_database();
 	void _load_guilds();
 
+	nlohmann::json config;
 	uint64_t log_min = 0;
 	dpp::cluster cluster;
+	wow::api_handler _wow_api;
 	command_handler _command_handler{*this};
 	sql::mysql_database _database{{
 		.password = "root",

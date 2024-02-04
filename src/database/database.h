@@ -16,6 +16,8 @@
 
 #include "query.h"
 
+#include "tools/worker.h"
+
 namespace mimiron::sql {
 
 template <typename T, template<typename ...> class Of> 
@@ -473,8 +475,6 @@ public:
 
 	mysql_database(const connection_info& info = {});
 
-	~mysql_database();
-
 	template <typename Type, typename Table, typename Where, typename Order>
 	auto prepare_sync(const sql::query<Type, Table, Where, Order>& q) {
 		using query_helper = query_type_helper<sql::query<Type, Table, Where, Order>>;
@@ -490,7 +490,7 @@ public:
 
 	template <typename Type, typename Table, typename Where, typename Order>
 	auto prepare(const sql::query<Type, Table, Where, Order>& q) {
-		return this->queue([this, q]() {
+		return this->_worker.queue([this, q]() {
 			return this->prepare_sync(q);
 		});
 	}
@@ -504,7 +504,7 @@ public:
 	}
 
 	auto prepare(std::string sql) -> dpp::awaitable<mysql_prepared_statement<query_dynamic>> {
-		return queue([this, s = std::move(sql)] {
+		return this->_worker.queue([this, s = std::move(sql)] {
 			return prepare_sync(s);
 		});
 	}
@@ -522,7 +522,7 @@ public:
 
 	template <query_type QueryType, typename DataType, size_t Placeholders, typename... Args>
 	auto query(mysql_prepared_statement<QueryType, DataType, Placeholders>& statement, Args&&... args) {
-		return this->queue([argt = std::forward_as_tuple(this, statement, std::forward<Args>(args)...)] {
+		return this->_worker.queue([argt = std::forward_as_tuple(this, statement, std::forward<Args>(args)...)] {
 			return std::apply(&mysql_database::query_sync<QueryType, DataType, Placeholders, std::remove_cvref_t<Args>...>, argt);
 		});
 	}
@@ -541,7 +541,7 @@ public:
 
 	template <typename Type, typename Table, typename Where, typename Order, typename... ArgsIn>
 	auto query(const sql::query<Type, Table, Where, Order>& q, ArgsIn&&... args_in) {
-		return this->queue([this, argt = std::forward_as_tuple(q, args_in...)]() {
+		return this->_worker.queue([this, argt = std::forward_as_tuple(q, args_in...)]() {
 			return []<size_t... Ns>(mysql_database *self, auto&& tuple, std::index_sequence<Ns...>) {
 				return self->query_sync(std::get<Ns>(tuple)...);
 			}(this, argt, std::make_index_sequence<sizeof...(ArgsIn) + 1>{});
@@ -562,7 +562,7 @@ public:
 
 	template <typename... Args>
 	auto query(std::string sql, Args&&... args) {
-		return this->queue([argt = std::forward_as_tuple(this, std::move(sql), std::forward<Args>(args))] {
+		return this->_worker.queue([argt = std::forward_as_tuple(this, std::move(sql), std::forward<Args>(args))] {
 			return std::apply(&mysql_database::query_sync, argt);
 		});
 	}
@@ -570,7 +570,7 @@ public:
 	template <query_type QueryType, typename DataType, size_t Placeholders>
 	requires (QueryType != query_dynamic)
 	auto fetch(mysql_prepared_statement<QueryType, DataType, Placeholders>& statement) {
-		return this->queue([this, &statement]() {
+		return this->_worker.queue([this, &statement]() {
 			return statement.fetch();
 		});
 	}
@@ -578,14 +578,14 @@ public:
 	template <query_type QueryType, typename DataType, size_t Placeholders>
 	requires (QueryType != query_dynamic)
 	auto fetch_all(mysql_prepared_statement<QueryType, DataType, Placeholders>& statement) {
-		return this->queue([this, &statement]() {
+		return this->_worker.queue([this, &statement]() {
 			return statement.fetch_all();
 		});
 	}
 
 	template <typename Out>
 	auto fetch(mysql_prepared_statement<query_dynamic>& statement) {
-		return this->queue([this, &statement]() {
+		return this->_worker.queue([this, &statement]() {
 			if constexpr (is_specialization_v<Out, std::vector>) {
 				return statement.fetch_all<std::ranges::range_value_t<Out>>();
 			} else {
@@ -596,7 +596,7 @@ public:
 
 	template <typename Out>
 	auto fetch_all(mysql_prepared_statement<query_dynamic>& statement) {
-		return this->queue([this, &statement]() {
+		return this->_worker.queue([this, &statement]() {
 			return statement.fetch_all<Out>();
 		});
 	}
@@ -614,7 +614,7 @@ public:
 
 	template <typename Type, typename Table, typename Where, typename Order, typename... ArgsIn>
 	auto execute(const sql::query<Type, Table, Where, Order>& q, ArgsIn&&... args_in) {
-		return this->queue([this, argt = std::forward_as_tuple(q, args_in...)]() {
+		return this->_worker.queue([this, argt = std::forward_as_tuple(q, args_in...)]() {
 			return []<size_t... Ns>(mysql_database *self, auto&& tuple, std::index_sequence<Ns...>) {
 				return self->execute_sync(std::get<Ns>(tuple)...);
 			}(this, argt, std::make_index_sequence<sizeof...(ArgsIn) + 1>{});
@@ -649,7 +649,7 @@ public:
 
 	template <typename Out, typename... ArgsIn>
 	auto execute(mysql_prepared_statement<query_dynamic>& statement, ArgsIn&&... args_in) {
-		return this->queue([this, argt = std::forward_as_tuple(statement, std::forward<ArgsIn>(args_in)...)] {
+		return this->_worker.queue([this, argt = std::forward_as_tuple(statement, std::forward<ArgsIn>(args_in)...)] {
 			return []<size_t... Ns>(mysql_database *self, auto&& tuple, std::index_sequence<Ns...>) {
 				return self->execute_sync<Out>(std::get<Ns>(tuple)...);
 			}(this, argt, std::make_index_sequence<sizeof...(ArgsIn) + 1>{});
@@ -659,7 +659,7 @@ public:
 	template <query_type QueryType, typename DataType, size_t Placeholders, typename... ArgsIn>
 	requires (QueryType != query_dynamic)
 	auto execute(mysql_prepared_statement<QueryType, DataType, Placeholders>& statement, ArgsIn&&... args_in) {
-		return this->queue([this, argt = std::forward_as_tuple(statement, std::forward<ArgsIn>(args_in)...)] {
+		return this->_worker.queue([this, argt = std::forward_as_tuple(statement, std::forward<ArgsIn>(args_in)...)] {
 			return []<size_t... Ns>(mysql_database *self, auto&& tuple, std::index_sequence<Ns...>) {
 				return self->execute_sync(std::get<Ns>(tuple)...);
 			}(this, argt, std::make_index_sequence<sizeof...(ArgsIn) + 1>{});
@@ -668,46 +668,22 @@ public:
 
 	template <typename Out, typename... ArgsIn>
 	auto execute(std::string_view sql, ArgsIn&&... args_in) {
-		return this->queue([this, argt = std::forward_as_tuple(std::string{sql}, std::forward<ArgsIn>(args_in)...)] {
+		return this->_worker.queue([this, argt = std::forward_as_tuple(std::string{sql}, std::forward<ArgsIn>(args_in)...)] {
 			return []<size_t... Ns>(mysql_database *self, auto&& tuple, std::index_sequence<Ns...>) {
 				return self->execute_sync<Out>(std::get<Ns>(tuple)...);
 			}(this, argt, std::make_index_sequence<sizeof...(ArgsIn) + 1>{});
 		});
 	}
 
-	template <typename Fun>
-	requires (std::invocable<Fun>)
-	dpp::awaitable<std::invoke_result_t<Fun>> queue(Fun&& work) {
-		using ret = std::invoke_result_t<Fun>;
-		auto promise = std::make_unique<dpp::promise<ret>>();
-		dpp::awaitable<ret> awaitable = promise->get_awaitable();
-		std::unique_lock lock{request_mutex};
-
-		request_queue.emplace_back([fun = std::move(work), p = std::move(promise)] {
-			try {
-				p->set_value(std::invoke(fun));
-			} catch (const std::exception &) {
-				p->set_exception(std::current_exception());
-			}
-		});
-		request_cv.notify_all();
-		return awaitable;
-	}
-
 private:
 	using request = std::move_only_function<void()>;
 
 	mysql_database(const connection_info& info, std::nullopt_t);
-	void run_queue();
 	MYSQL* connect();
 
 	connection_info db_info;
 	managed_ptr<MYSQL, &mysql_close> connection;
-	std::mutex request_mutex;
-	std::condition_variable request_cv;
-	std::vector<request> request_queue;
-	std::atomic<bool> running;
-	std::jthread request_thread;
+	worker _worker;
 };
 
 using database = mysql_database;
