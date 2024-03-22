@@ -4,6 +4,7 @@
 #include <string>
 
 #include "wow/api/wow_api.h"
+#include "wow/api/localized_string.h"
 
 namespace mimiron::wow {
 
@@ -12,7 +13,7 @@ namespace mimiron::wow {
  */
 struct realm_entry {
   api_link key;
-  std::string name;
+  localized_string name;
   int64_t id;
   std::string slug;
 };
@@ -23,20 +24,20 @@ struct realm_entry {
 struct realm {
   struct region_t {
     api_link key;
-    std::string name;
+    localized_string name;
     int64_t id;
   };
 
   struct type_t {
     std::string type;
-    std::string name;
+    localized_string name;
   };
 
   int64_t id;
   region_t region;
   api_link connected_realm;
-  std::string name;
-  std::string category;
+  localized_string name;
+  localized_string category;
   std::string locale;
   std::string timezone;
   type_t type;

@@ -11,7 +11,7 @@ add_subdirectory(dep)
 
 FILE(GLOB_RECURSE MIMIRON_SRC src/*.cpp src/*.h)
 
-add_executable(Mimiron ${MIMIRON_SRC} "src/database/conditions.h")
+add_executable(Mimiron ${MIMIRON_SRC})
 
 target_link_libraries(Mimiron PUBLIC dpp sol2::sol2 liblua mysql Boost::pfr termcolor)
 
@@ -30,6 +30,11 @@ target_compile_definitions(Mimiron PUBLIC "NOMINMAX")
 target_compile_options(Mimiron
 	PRIVATE
 		$<$<CXX_COMPILER_ID:MSVC>:/wd4251 /utf-8 /permissive- /Zc:preprocessor>
+)
+
+target_link_options(Mimiron
+	PRIVATE
+		$<$<CXX_COMPILER_ID:MSVC>:/INCREMENTAL>
 )
 
 target_compile_features(Mimiron

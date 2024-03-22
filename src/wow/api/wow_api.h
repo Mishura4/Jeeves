@@ -3,22 +3,61 @@
 
 #include <string>
 
+#include "common.h"
+#include "tools/string_literal.h"
+
 namespace mimiron::wow {
+
+struct api_region;
+
+enum class game_version {
+	retail,
+	progression,
+	classic_era
+};
+
+using enum game_version;
+
+enum class api_namespace {
+	api_static,
+	api_dynamic,
+	api_profile
+};
+
+using enum api_namespace;
+
+struct resource_location {
+	std::string     host;
+	string_literal<2> region_code;
+	game_version    version;
+};
 
 struct api_region {
 	int64_t id;
-	std::string_view name;
-	std::string_view code;
-	std::string_view url;
+	fixed_string<16> name;
+	string_literal<2> code;
+	fixed_string<40> url;
+
+	constexpr resource_location operator[](game_version version) const {
+		return {
+			.host = std::string{url},
+			.region_code = code,
+			.version = version
+		};
+	}
 };
+
+constexpr fixed_string foo = "foo";
+
+constexpr api_region bar = { 0, "hi", "ee", "baba"};
 
 struct api_regions {
 	static constexpr auto all = std::to_array<api_region>({
-		{ 0, "North America", "us", "https://us.api.blizzard.com" },
-		{ 1, "Europe", "eu", "https://eu.api.blizzard.com" },
-		{ 2, "South Korea", "kr", "https://kr.api.blizzard.com" },
-		{ 3, "Taiwan", "tw", "https://tw.api.blizzard.com" },
-		{ 4, "China", "cn", "https://gateway.battlenet.com.cn" }
+		api_region{ 0, "North America", "us", "https://us.api.blizzard.com" },
+		api_region{ 1, "Europe", "eu", "https://eu.api.blizzard.com" },
+		api_region{ 2, "South Korea", "kr", "https://kr.api.blizzard.com" },
+		api_region{ 3, "Taiwan", "tw", "https://tw.api.blizzard.com" },
+		api_region{ 4, "China", "cn", "https://gateway.battlenet.com.cn" }
 	});
 
 	static constexpr api_region const& north_america = all[0];
@@ -32,64 +71,12 @@ struct client_credentials {
 	std::string access_token;
 	std::string token_type;
 	uint64_t expires_in;
-	std::string scope;
+	std::optional<std::string> scope;
 };
 
 struct api_link {
 	std::string href;
 };
-
-enum class game_version {
-	wow_retail,
-	wow_progression,
-	wow_classic_era
-};
-
-using enum game_version;
-
-enum class api_namespace {
-	api_static,
-	api_dynamic,
-	api_profile
-};
-
-using enum api_namespace;
-
-constexpr std::string resource_namespace(api_region const& region, game_version version, api_namespace n) {
-	std::string str;
-
-	str.reserve(64);
-	switch (n) {
-		case api_static:
-			str = "static";
-			break;
-
-		case api_dynamic:
-			str = "dynamic";
-			break;
-
-		case api_profile:
-			str = "profile";
-			break;
-	}
-
-	switch (version) {
-		case wow_retail:
-			break;
-
-		case wow_progression:
-			str += "-classic";
-			break;
-
-		case wow_classic_era:
-			str += "-classic1x";
-			break;
-	}
-
-	str.push_back('-');
-	str += region.code;
-	return str;
-}
 
 }
 

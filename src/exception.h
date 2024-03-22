@@ -5,7 +5,7 @@
 
 namespace mimiron {
 
-class exception : std::exception {
+class exception : public std::exception {
 public:
 	exception() = default;
 	exception(const std::string &exception);

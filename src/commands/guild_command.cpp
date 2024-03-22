@@ -77,10 +77,34 @@ dpp::coroutine<void> guild_command::add_guild(const dpp::button_click_t& event) 
     co_return;
   }
 
-  auto realms = co_await _bot->wow_api().get_realms(wow::api_regions::north_america, wow::wow_classic_era);
+  auto realms = co_await _bot->resource_manager().get_realms(wow::api_regions::north_america[wow::classic_era]);
 
-  for (const auto& realm : realms) {
-    cluster.log(dpp::ll_info, realm.name);
+  for (const auto& r : realms.value()) {
+    auto realm_res = co_await _bot->resource_manager().get_realm(wow::api_regions::north_america[wow::classic_era], r.slug);
+    const auto& realm = realm_res.value();
+    cluster.log(dpp::ll_info, std::format("{} - {} - {} {} - {}", realm.name[wow::locale::en_us], realm.category[wow::locale::en_us], realm.type.name[wow::locale::en_us], realm.type.name[wow::locale::en_us], realm.timezone));
+  }
+
+  std::string id = std::format("{}:region", event.command.id.str());
+
+  auto result = co_await event.co_reply(
+    dpp::message{"Select your region"}
+    .set_flags(dpp::m_ephemeral)
+    .add_component(dpp::component{}.add_component(
+      dpp::component{}
+      .set_type(dpp::cot_selectmenu)
+      .set_id(id)
+      .add_select_option({"United States", "0"})
+      .add_select_option({"Europe", "1"})
+      .add_select_option({"South Korea", "2"})
+      .add_select_option({"Taiwan", "3"})
+      .add_select_option({"China", "4"})
+    ))
+  );
+
+  if (result.is_error()) {
+    _bot->log(dpp::ll_error, result.get_error().human_readable);
+    co_return;
   }
 
   /*event.dialog(dpp::interaction_modal_response{
@@ -91,7 +115,7 @@ dpp::coroutine<void> guild_command::add_guild(const dpp::button_click_t& event) 
       .set_placeholder("Guild name (must match in-game name!)")
       .set_max_length(63)
       .set_text_style(dpp::text_short)
-      .set_id("name"),
+      .set_id("name")/*,
 
       dpp::component{}
       .set_type(dpp::cot_selectmenu)

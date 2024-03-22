@@ -35,7 +35,7 @@ nlohmann::json load_config(const std::filesystem::path &file_path) {
 mimiron::mimiron(std::span<char *const> args) :
 	config{load_config(args.size() < 2 ? "config.json" : args[1])},
 	cluster{config["discord_token"], dpp::i_default_intents, 0, 0, 1, true, dpp::cache_policy::cpol_balanced},
-	_wow_api{cluster, config["wow_api_id"], config["wow_api_key"]} {
+	_resource_manager{cluster, config["wow_api_id"], config["wow_api_key"]} {
 	log_min = 0;
 	cluster.on_log([this]( dpp::log_t const& log) { _log(log); });
 }
@@ -75,7 +75,7 @@ void mimiron::log(dpp::loglevel severity, std::string_view message) const {
 }
 
 dpp::coroutine<dpp::embed> mimiron::make_default_embed(dpp::snowflake guild_for, dpp::user const* user_for, dpp::guild_member const* member_for) {
-	auto [_, guild_settings] = discord_guild_cache().try_emplace(guild_for, guild_for);
+	auto [guild_settings, _] = discord_guild_cache().try_emplace(guild_for, guild_for);
 	dpp::embed ret{};
 	std::string nickname;
 	std::string url;
@@ -112,7 +112,7 @@ dpp::coroutine<dpp::embed> mimiron::make_default_embed(dpp::snowflake guild_for,
 }
 
 dpp::coroutine<dpp::guild_member> mimiron::get_bot_member(dpp::snowflake guild) {
-	auto [_, guild_settings] = discord_guild_cache().try_emplace(guild, guild);
+	auto [guild_settings, _] = discord_guild_cache().try_emplace(guild, guild);
 
 	if (dpp::guild* g = dpp::find_guild(guild)) {
 		if (auto it = g->members.find(cluster.me.id); it != g->members.end()) {
@@ -149,12 +149,12 @@ dpp::coroutine<dpp::guild_member> mimiron::get_bot_member(dpp::snowflake guild) 
 	if (result.is_error()) {
 		throw dpp::rest_exception{result.get_error().human_readable};
 	}
-	dpp::guild_member member = std::move(std::get<dpp::guild_member>(result.value));
+	dpp::guild_member member = std::get<dpp::guild_member>(std::move(result.value));
 	dpp::role_map role_map;
 
 	result = co_await cluster.co_roles_get(guild);
 	if (!result.is_error()) {
-		role_map = std::move(std::get<dpp::role_map>(result.value));
+		role_map = std::get<dpp::role_map>(std::move(result.value));
 	}
 	guild_settings->second.update_bot_member(member, role_map);
 	co_return member;
@@ -209,7 +209,7 @@ void mimiron::_load_guilds() {
 		cluster.log(dpp::ll_info, "loading discord guilds...");
 		auto discord_guilds = _database.execute_sync(sql::select<tables::discord_guild_entry>.from("discord_guild"));
 		for (const tables::discord_guild_entry& entry : discord_guilds) {
-			auto [inserted, guild] = _discord_guild_cache.try_emplace(entry.snowflake, entry);
+			auto [guild, inserted] = _discord_guild_cache.try_emplace(entry.snowflake, entry);
 			if (!inserted) {
 				guild->second = discord_guild{entry};
 			}
@@ -252,17 +252,17 @@ int mimiron::run() {
 	try {
 		_init_database();
 	} catch (const std::exception &e) {
-		cluster.log(dpp::ll_critical, std::format("fatal error while initializing database, exiting", e.what()));
+		cluster.log(dpp::ll_critical, std::format("fatal error while initializing database, exiting: {}", e.what()));
 		return -1;
 	}
 
 	try {
-		auto result = _wow_api.start().sync_wait_for(1min);
+		auto result = _resource_manager.start().sync_wait_for(1min);
 		if (!result) {
 			throw exception{"WoW API timed out"};
 		}
 	} catch (const std::exception &e) {
-		cluster.log(dpp::ll_critical, std::format("fatal error while initializing WoW API communication, exiting", e.what()));
+		cluster.log(dpp::ll_critical, std::format("fatal error while initializing WoW API communication, exiting: {}", e.what()));
 		return -1;
 	}
 

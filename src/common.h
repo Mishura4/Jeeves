@@ -1,14 +1,18 @@
 #ifndef MIMIRON_COMMON_H_
 #define MIMIRON_COMMON_H_
 
-#include <dpp/colors.h>
-
+#include <string_view>
 #include <chrono>
+#include <charconv>
+#include <functional>
+
+#include <dpp/colors.h>
 
 namespace mimiron {
 
 using app_clock = std::chrono::steady_clock;
 using app_timestamp = std::chrono::time_point<app_clock>;
+using app_duration = app_timestamp::duration;
 
 inline constexpr auto mimiron_color = dpp::colors::rust;
 
@@ -44,6 +48,23 @@ using std::chrono::milliseconds;
 using std::chrono::seconds;
 using std::chrono::minutes;
 using std::chrono::hours;
+
+using namespace std::string_view_literals;
+
+template <typename Cont, typename Key, typename Func>
+requires (std::is_invocable_v<Func, std::ranges::range_value_t<Cont>>)
+bool if_present(Cont&& cont, const Key &key, Func&& func) {
+	if (auto it = cont.find(std::forward<Key>(key)); it != cont.end()) {
+		std::invoke(func, *it);
+		return true;
+	}
+	return false;
+}
+
+template <typename T>
+std::from_chars_result from_chars(std::string_view str, T& val) {
+	return std::from_chars(str.data(), str.data() + str.size(), val);
+}
 
 }
 

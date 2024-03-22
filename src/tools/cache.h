@@ -9,6 +9,9 @@
 namespace mimiron {
 
 template <typename Key, typename Value>
+class cached_resource_base;
+
+template <typename Key, typename Value>
 class cached_resource;
 
 namespace detail {
@@ -37,7 +40,7 @@ public:
 	}
 
 	constexpr explicit operator bool() const noexcept {
-		return ref_count.load(std::memory_order_acq_rel) == 0;
+		return ref_count.load(std::memory_order_relaxed) > 0;
 	}
 
 	template <typename T, typename... Args>
@@ -119,19 +122,51 @@ public:
 	}
 
 	std::add_const_t<value_t>& operator*() const noexcept {
+		assert(ptr);
+
 		return ptr->operator*();
 	}
 
 	value_t& operator*() noexcept {
+		assert(ptr);
+
 		return ptr->operator*();
 	}
 
 	value_t* operator->() noexcept {
+		assert(ptr);
+
 		return &ptr->operator*();
 	}
 
 	std::add_const_t<value_t> *operator->() const noexcept {
+		assert(ptr);
+
 		return &ptr->operator*();
+	}
+
+	Key &key() noexcept {
+		assert(ptr);
+
+		return ptr->operator*().first;
+	}
+
+	const Key &key() const noexcept {
+		assert(ptr);
+
+		return ptr->operator*().first;
+	}
+
+	Value &value() noexcept {
+		assert(ptr);
+
+		return ptr->operator*().second;
+	}
+
+	const Value &value() const noexcept {
+		assert(ptr);
+
+		return ptr->operator*().second;
 	}
 
 	std::add_const_t<value_t> &get() const {
@@ -237,7 +272,7 @@ public:
 	template <typename T>
 	cached_resource<Key, Value> find(const T& key) noexcept(nothrow_lookup<T>) {
 		size_t hashed = hash(key);
-		std::unique_lock lock{mutex};
+		std::shared_lock lock{mutex};
 
 		return _find_hash(key, hashed);
 	}
@@ -245,42 +280,42 @@ public:
 	template <typename T>
 	cached_resource<Key, std::add_const_t<Value>> find(const T& key) const noexcept(nothrow_lookup<T>) {
 		size_t hashed = hash(key);
-		std::unique_lock lock{mutex};
+		std::shared_lock lock{mutex};
 
 		return _find_hash(key, hashed);
 	}
 
 	template <typename T>
 	cached_resource<Key, Value> find_hash(const T& key, size_t hash) noexcept(nothrow_equal<T>) {
-		std::unique_lock lock{mutex};
+		std::shared_lock lock{mutex};
 
 		return _find_hash(key, hash);
 	}
 
 	template <typename T>
 	cached_resource<Key, std::add_const_t<Value>> find_hash(const T& key, size_t hash) const noexcept(nothrow_equal<T>) {
-		std::unique_lock lock{mutex};
+		std::shared_lock lock{mutex};
 
 		return _find_hash(key, hash);
 	}
 
 	template <typename T, typename... Args>
-	std::pair<bool, cached_resource<Key, Value>> try_emplace(T&& key, Args&&... args) noexcept(nothrow_lookup<T> && nothrow_emplace<Args...>) {
+	std::pair<cached_resource<Key, Value>,bool > try_emplace(T&& key, Args&&... args) noexcept(nothrow_lookup<T> && nothrow_emplace<Args...>) {
 		size_t hashed = hash(key);
-		std::unique_lock lock{mutex};
+		std::lock_guard lock{mutex};
 
 		if (auto res = _find_hash(key, hashed); res) {
-			return {false, res};
+			return {res, false};
 		}
 
-		return {true, _emplace(std::forward<T>(key), hashed, std::forward<Args>(args)...)};
+		return {_emplace(std::forward<T>(key), hashed, std::forward<Args>(args)...), true};
 	}
 
 	template <typename T>
 	requires (std::is_constructible_v<Key, T> && std::is_default_constructible_v<Value>)
 	cached_resource<Key, Value> operator[](T&& key) noexcept (nothrow_lookup<T> && nothrow_emplace<T>) {
 		size_t hashed = hash(key);
-		std::unique_lock lock{mutex};
+		std::lock_guard lock{mutex};
 
 		if (auto res = _find_hash(key, hashed); res) {
 			return res;
@@ -342,18 +377,18 @@ private:
 		for (bucket &b : _buckets) {
 			if (auto it = std::ranges::find_if(b, is_empty); it != b.end()) {
 				it->hash = hash;
-				it->my_ref = it->value.emplace(std::forward<Key>(key), std::forward<Args>(args)...);
+				it->my_ref = it->value.emplace(std::forward<T>(key), std::forward<Args>(args)...);
 				return it->my_ref;
 			}
 		}
 
 		bucket &b = _buckets.emplace_back();
 		b.data[0].hash = hash;
-		b.data[0].my_ref = b.data[0].value.emplace(std::forward<Key>(key), std::forward<Args>(args)...);
+		b.data[0].my_ref = b.data[0].value.emplace(std::forward<T>(key), std::forward<Args>(args)...);
 		return {b.data[0].my_ref};
 	}
 
-	mutable std::mutex mutex;
+	mutable std::shared_mutex mutex;
 	std::list<bucket> _buckets;
 };
 

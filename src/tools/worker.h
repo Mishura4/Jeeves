@@ -16,21 +16,34 @@ class worker {
 public:
 	template <typename Fun>
 	requires (std::invocable<Fun>)
-	dpp::awaitable<std::invoke_result_t<Fun>> queue(Fun&& work) {
+	[[nodiscard]] dpp::awaitable<std::invoke_result_t<Fun>> schedule(Fun&& work) {
 		using ret = std::invoke_result_t<Fun>;
-		auto promise = std::make_unique<dpp::promise<ret>>();
-		dpp::awaitable<ret> awaitable = promise->get_awaitable();
+		auto promise = dpp::promise<ret>{};
+		dpp::awaitable<ret> awaitable = promise.get_awaitable();
 		std::unique_lock lock{mutex};
 
-		work_queue.emplace_back([fun = std::move(work), p = std::move(promise)] {
+		work_queue.emplace_back([fun = std::forward<Fun>(work), p = std::move(promise)]() mutable noexcept {
 			try {
-				p->set_value(std::invoke(fun));
-			} catch (const std::exception &) {
-				p->set_exception(std::current_exception());
+				p.set_value(std::invoke(std::forward<Fun>(fun)));
+			} catch (...) {
+				p.set_exception(std::current_exception());
 			}
 		});
 		cv.notify_all();
 		return awaitable;
+	}
+
+	template <typename Fun>
+	requires (std::invocable<Fun>)
+	void queue(Fun&& work) {
+		static_assert(std::is_nothrow_invocable_v<Fun>);
+
+		std::unique_lock lock{mutex};
+
+		work_queue.emplace_back([fun = std::forward<Fun>(work)]() mutable noexcept {
+			std::invoke(std::forward<Fun>(fun));
+		});
+		cv.notify_all();
 	}
 
 	dpp::awaitable<void> stop();
@@ -38,7 +51,7 @@ public:
 private:
 	void _run();
 
-  using work = std::move_only_function<void()>;
+  using work = std::move_only_function<void() noexcept>;
   std::mutex mutex;
 	dpp::promise<void> end_promise;
   std::condition_variable cv;

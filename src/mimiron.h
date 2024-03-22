@@ -14,7 +14,7 @@
 #include "wow/guild.h"
 #include "discord_guild.h"
 
-#include "wow/api/api_handler.h"
+#include "wow/api/resource_manager.h"
 
 namespace mimiron {
 
@@ -51,8 +51,8 @@ public:
 		return _discord_guild_cache;
 	}
 
-	auto& wow_api() noexcept {
-		return _wow_api;
+	auto& resource_manager() noexcept {
+		return _resource_manager;
 	}
 
 	dpp::coroutine<dpp::guild_member> get_bot_member(dpp::snowflake guild);
@@ -70,7 +70,7 @@ private:
 	nlohmann::json config;
 	uint64_t log_min = 0;
 	dpp::cluster cluster;
-	wow::api_handler _wow_api;
+	wow::resource_manager _resource_manager;
 	command_handler _command_handler{*this};
 	sql::mysql_database _database{{
 		.password = "root",
